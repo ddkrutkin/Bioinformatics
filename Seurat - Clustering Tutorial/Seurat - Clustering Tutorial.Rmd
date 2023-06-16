@@ -35,5 +35,80 @@ The "." values in the matrix represent 0s (no molecules detected).
 
 Most values in a scRNA-seq matrix are 0 - Seurat uses a sparse-matrix representation whenever possible. This results in significant memory and speed savings for Drop-seq/inDrop/10x data.
 
+```{r}
+#Check the full size of object:
+dense.size <- object.size(as.matrix(pbmc.data))
+dense.size
+```
 
+```{r}
+#Check the sparse-represented size:
+sparse.size <- object.size(pbmc.data)
+sparse.size
+```
+
+```{r}
+#Check the ratio of full-size:sparse-size:
+dense.size/sparse.size
+```
+
+# Standard pre-processing workflow
+The steps below demonstrate the standard pre-processing workflow for scRNA-seq data using Seurat. 
+
+The steps include selection and filtration of cells based on QC metrics, data normalization and scaling, and the detection of highly variable features.
+
+## Quality Control and selecting cells to further analyze
+In Seurat, QC metrics can be explored and cells can be filtered according to any user-defined criteria. 
+
+Some QC metrics used by the community include:
+
+* The number of unique genes detected in each cell
+  + Low-quality cells or empty droplets often have very few genes
+  + Cell doublets or multiplets may have unusually high gene counts
+* The total number of molecules detected within a cell, which correlate strongly with unique genes
+* The percentage of reads which map to the mitochondrial genome 
+  + Poor quality and dying cells frequently show extensive mitochondrial contamination
+  + The PercentageFeatureSet() function calculates the percentage of counts originating from a set of features to calculate mitochondrial QC metrics
+  + Genes starting with MT- are pooled as a set of mitochondrial genes
+  
+```{r}
+#Add QC stats for mitochondrial genes to the object metadata:
+pbmc[["percent.mt"]] = PercentageFeatureSet(pbmc, pattern = "^MT-")
+#pbmc[["percent.mt"]]
+```
+
+### Where are QC metrics stored in Seurat?
+
+* The number of unique genes and total molecules are automatically calculated during CreateSeuratObject()
+  + They are stored in the object metadata
+  
+```{r}
+#Show QC metrics for the first 5 cells:
+head(pbmc@meta.data, 5)
+```
+
+Below, QC metrics are visualized and then used to filter cells
+
+* Cells are filtered that have unique feature counts over 2,500 or less than 200
+* Cells are filtered that have >5% mitochondrial counts
+
+```{r}
+#Visualize QC metrics as violin plots:
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+```
+
+```{r}
+#FeatureScatter is typically used to visualize feature-feature relationships
+
+#It can be used for anything calculated by the object, such as columns in object metadata, PC scores, etc.
+
+plot1 = FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 = FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+```
+
+```{r}
+#Filter the PBMC data set:
+pbmc_filtered <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+```
 
